@@ -23,7 +23,7 @@ def create_document(
     db_document = Document(
         filename=document.filename,
         content=document.content,
-        owner_id=user.id
+        owner_id=user.user_id
     )
 
     db.add(db_document)
@@ -33,7 +33,7 @@ def create_document(
     background_tasks.add_task(
         run_in_threadpool,
         generate_and_store_embedding,
-        db_document.id,
+        db_document.document_id,
         document.content
     )
 
@@ -48,7 +48,7 @@ def generate_and_store_embedding(doc_id: int, content: str):
 
     try:
         embedding = embedding_service.generate_embedding(content)
-        document = db.query(Document).filter(Document.id == doc_id).first()
+        document = db.query(Document).filter(Document.document_id == doc_id).first()
         document.embedding = embedding
         db.commit()
     finally:

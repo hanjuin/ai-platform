@@ -5,7 +5,7 @@ class DocumentCreate(BaseModel):
     content:str
 
 class DocumentResponse(BaseModel):
-    id:int
+    document_id:int
     filename:str
     content:str
 
@@ -13,11 +13,11 @@ class DocumentResponse(BaseModel):
         from_attributes = True
 
 class SearchResponse(BaseModel):
-    id: int
+    document_id: int
     filename: str
     content: str
     similarity: float
-
+    owner_id: int
     class Config:
         from_attributes = True
 
@@ -28,3 +28,12 @@ class UserCreate(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+class UserResponse(BaseModel):
+    user_id: int
+    username: str
+    role: str
+    is_active: bool
+
+    class Config:
+        from_attributes = True
