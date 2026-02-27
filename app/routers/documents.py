@@ -16,14 +16,13 @@ router = APIRouter(prefix="/documents", tags=["Documents"])
 def create_document(
     document: DocumentCreate,
     background_tasks: BackgroundTasks,
-    current_user: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    user = db.query(User).filter(User.username == current_user).first()
     db_document = Document(
         filename=document.filename,
         content=document.content,
-        owner_id=user.user_id
+        owner_id=current_user.user_id
     )
 
     db.add(db_document)
