@@ -7,6 +7,9 @@ from app.models.db_models import Document
 from app.models.schemes import DocumentCreate, DocumentResponse
 from app.services.embedding_service import embedding_service
 from app.services.security import get_current_user
+from app.models.db_models import User
+
+
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
 @router.post("/", response_model=DocumentResponse)
@@ -16,9 +19,11 @@ def create_document(
     current_user: str = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    user = db.query(User).filter(User.username == current_user).first()
     db_document = Document(
         filename=document.filename,
         content=document.content,
+        owner_id=user.id
     )
 
     db.add(db_document)

@@ -8,6 +8,7 @@ from app.services.embedding_service import embedding_service
 from app.models.schemes import SearchResponse
 from app.services.cache_service import get_cache, set_cache
 from app.services.security import get_current_user
+from app.models.db_models import User
 router = APIRouter(prefix="/search", tags=["Search"])
 
 @router.get("/", response_model=list[SearchResponse])
@@ -28,12 +29,15 @@ async def search_documents(
         q
     )
     
+    user = db.query(User).filter(User.username == current_user).first()
+
     embedding_str = f"[{','.join(map(str, query_embedding))}]"
     sql = text("""
         SELECT id, filename, content,
                1 - (embedding <=> (:query_embedding)::vector) AS similarity
         FROM documents
-        WHERE 1 - (embedding <=> (:query_embedding)::vector) > 0.6
+        WHERE owner_id = :user_id
+               AND 1 - (embedding <=> (:query_embedding)::vector) > 0.6
         ORDER BY embedding <=> (:query_embedding)::vector
         LIMIT :limit OFFSET :offset
         """)
@@ -42,7 +46,8 @@ async def search_documents(
         sql,
         {"query_embedding": embedding_str,
          "limit": limit,
-         "offset": offset}
+         "offset": offset,
+         "user_id": user.id}
     ).fetchall()
 
     response = [
