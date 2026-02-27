@@ -16,7 +16,7 @@ async def search_documents(
     q: str,
     limit: int = 5, 
     offset: int = 0,
-    current_user: str = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
 
@@ -25,16 +25,14 @@ async def search_documents(
         q
     )
     
-    user = db.query(User).filter(User.username == current_user).first()
-
-    cache_key = f"search:{user.user_id}:{user.role}:{q}:{limit}:{offset}"
+    cache_key = f"search:{current_user.user_id}:{current_user.role}:{q}:{limit}:{offset}"
     cached = get_cache(cache_key)
     if cached:
         return cached
 
     embedding_str = f"[{','.join(map(str, query_embedding))}]"
 
-    if user.role == UserRole.admin:
+    if current_user.role == UserRole.admin:
         sql = text("""
             SELECT document_id, filename, content, owner_id,
                 1 - (embedding <=> (:query_embedding)::vector) AS similarity
@@ -61,7 +59,7 @@ async def search_documents(
         params={"query_embedding": embedding_str,
                 "limit": limit,
                 "offset": offset,
-                "user_id": user.user_id
+                "user_id": current_user.user_id
                 }
     
     results = db.execute(
