@@ -1,9 +1,8 @@
 from fastapi import FastAPI, Depends
 from app.models.db_models import Base
 from app.db.session import engine
-from app.routers import documents, auth, users
+from app.routers import documents, auth, users, search, chat
 from app.services.embedding_service import embedding_service
-from app.routers import search
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.dependencies import get_db
@@ -19,6 +18,7 @@ app.include_router(documents.router)
 app.include_router(search.router)
 app.include_router(auth.router)
 app.include_router(users.router)
+app.include_router(chat.router)
 
 @app.get("/health")
 def health_check():

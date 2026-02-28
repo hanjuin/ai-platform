@@ -7,6 +7,8 @@ python-multipart
 sentence-transformers
 pgvector
 redis
+python-dotenv
 python-jose[cryptography]
+openai
 passlib==1.7.4
 bcrypt==4.0.1
