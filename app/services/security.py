@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from jose import JWTError, jwt
 
 from app.dependencies import get_db
-from app.models.db_models import User
+from app.models.db_models import User, UserRole
 
 SECRECT_KEY = "supersecretkey"
 ALGORITHM = "HS256"
@@ -48,5 +48,16 @@ def get_current_user(
     
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Inactive user")
+    
+    return user
+
+def get_current_admin(
+        current_username: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ):  
+    user = db.query(User).filter(User.username == current_username.username).first()
+
+    if user.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="Admin privilage required")
     
     return user
