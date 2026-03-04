@@ -1,27 +1,38 @@
-from fastapi import APIRouter, Depends, BackgroundTasks
+import boto3
+import uuid
+import os
+from fastapi import APIRouter, Depends, BackgroundTasks, UploadFile, File
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
+from dotenv import load_dotenv
 
 from app.dependencies import get_db
 from app.models.db_models import Document
-from app.models.schemes import DocumentCreate, DocumentResponse
-from app.services.embedding_service import embedding_service
+from app.models.schemes import DocumentResponse
 from app.services.security import get_current_user
 from app.models.db_models import User
 
+load_dotenv()
+s3 = boto3.client("s3", region_name=os.getenv("AWS_REGION"))
+BUCKET = os.getenv("S3_BUCKET_NAME")
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
 @router.post("/", response_model=DocumentResponse)
 def create_document(
-    document: DocumentCreate,
     background_tasks: BackgroundTasks,
+    document: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
+    print(BUCKET)
+    key = f"document/{uuid.uuid4()}_{document.filename}"
+    
+    s3.upload_fileobj(document.file, BUCKET, key)
+    
     db_document = Document(
         filename=document.filename,
-        content=document.content,
+        s3_key=key,
         owner_id=current_user.user_id
     )
 
@@ -29,12 +40,12 @@ def create_document(
     db.commit()
     db.refresh(db_document)
 
-    background_tasks.add_task(
-        run_in_threadpool,
-        generate_and_store_embedding,
-        db_document.document_id,
-        document.content
-    )
+    # background_tasks.add_task(
+    #     run_in_threadpool,
+    #     generate_and_store_embedding,
+    #     db_document.document_id,
+    #     document.content
+    # )
 
     return db_document
 

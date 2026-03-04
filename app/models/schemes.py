@@ -7,7 +7,6 @@ class DocumentCreate(BaseModel):
 class DocumentResponse(BaseModel):
     document_id:int
     filename:str
-    content:str
 
     class Config:
         from_attributes = True
