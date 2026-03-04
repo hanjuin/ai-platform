@@ -3,29 +3,43 @@
 # ===============================
 
 PROJECT_NAME=ai-platform
-PYTHON=python
+PYTHON=python3
 VENV=.venv
 APP=app.main:app
+
+# Detect OS
+ifeq ($(OS),Windows_NT)
+	PYTHON=py -3.11
+	VENV_BIN=$(VENV)\Scripts
+	PIP=$(VENV_BIN)\pip
+	UVICORN=$(VENV_BIN)\uvicorn
+	RM=Remove-Item -Recurse -Force
+else
+	VENV_BIN=$(VENV)/bin
+	PIP=$(VENV_BIN)/pip
+	UVICORN=$(VENV_BIN)/uvicorn
+	RM=rm -rf
+endif
 
 # ===============================
 # Virtual Environment
 # ===============================
 
 venv:
-	py -3.11 -m venv $(VENV)
+	$(PYTHON) -m venv $(VENV)
 
 install:
-	$(VENV)\Scripts\pip install -r requirements.txt
+	$(PIP) install -r requirements.txt
 
 freeze:
-	$(VENV)\Scripts\pip freeze > requirements.txt
+	$(PIP) freeze > requirements.txt
 
 # ===============================
 # Run Server
 # ===============================
 
 run:
-	$(VENV)\Scripts\uvicorn $(APP) --reload
+	$(UVICORN) $(APP) --reload
 
 # ===============================
 # Docker
@@ -60,4 +74,4 @@ db-shell:
 # ===============================
 
 clean:
-	Remove-Item -Recurse -Force $(VENV)
+	$(RM) $(VENV)

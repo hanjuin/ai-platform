@@ -14,9 +14,9 @@ class Document(Base):
 
     document_id = Column(Integer, primary_key=True, index=True)
     filename = Column(String, nullable=False)
-    content = Column(Text, nullable=False)
+    # content = Column(Text, nullable=False)
     embedding = Column(Vector(384)) # 384-dim embedding
-
+    s3_key = Column(String, nullable=False)
     owner_id = Column(Integer, ForeignKey("users.user_id"))
     owner = relationship("User", back_populates="documents")
 
