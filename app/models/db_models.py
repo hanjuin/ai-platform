@@ -14,12 +14,17 @@ class Document(Base):
 
     document_id = Column(Integer, primary_key=True, index=True)
     filename = Column(String, nullable=False)
-    # content = Column(Text, nullable=False)
     embedding = Column(Vector(384)) # 384-dim embedding
     s3_key = Column(String, nullable=False)
     owner_id = Column(Integer, ForeignKey("users.user_id"))
     owner = relationship("User", back_populates="documents")
 
+class DocumentChunk(Base):
+    __tablename__ = "document_chunks"
+    chunk_id = Column(Integer, primary_key=True)
+    document_id = Column(Integer, ForeignKey("documents.document_id"))
+    content = Column(Text, nullable=False)
+    embedding = Column(Vector(384)) # 384-dim embedding
 
 class User(Base):
     __tablename__ = "users"
