@@ -12,8 +12,10 @@ class DocumentResponse(BaseModel):
         from_attributes = True
 
 class SearchResponse(BaseModel):
+    chunk_id: int
     document_id: int
     filename: str
+    chunk_header: str | None
     content: str
     similarity: float
     owner_id: int

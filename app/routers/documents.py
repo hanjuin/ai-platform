@@ -13,6 +13,7 @@ from app.services.security import get_current_user
 from app.models.db_models import User
 from app.modules.chunk_content.md_chunk import chunk_doc_by_headings
 from app.core.logging_config import logger
+
 load_dotenv()
 s3 = boto3.client("s3", region_name=os.getenv("AWS_REGION"))
 BUCKET = os.getenv("S3_BUCKET_NAME")
@@ -29,9 +30,9 @@ def create_document(
     db: Session = Depends(get_db)
 ):
     key = f"document/{uuid.uuid4()}_{document.filename}"
-    
+
     s3.upload_fileobj(document.file, BUCKET, key)
-    
+
     db_document = Document(
         filename=document.filename,
         s3_key=key,
@@ -50,6 +51,7 @@ def create_document(
     logger.info("Upload Successful!")
     return db_document
 
+
 def generate_and_store_embedding(doc_id: int):
     from app.db.session import SessionLocal
     from app.models.db_models import Document
@@ -59,24 +61,39 @@ def generate_and_store_embedding(doc_id: int):
 
     try:
         document = db.query(Document).filter(Document.document_id == doc_id).first()
-        
-        response = s3.get_object(Bucket= BUCKET, Key=document.s3_key)
-        object_bytes = cast(bytes, response["Body"].read())
-        
-        text = object_bytes.decode("utf-8")
-        
-        chunks = chunk_doc_by_headings(text)
-        
-        embeddings = embedding_service.generate_embedding(chunks)
 
-        for chunk_text, vector in zip(chunks, embeddings):
-            chunk = DocumentChunk(
+        response = s3.get_object(Bucket=BUCKET, Key=document.s3_key)
+        object_bytes = cast(bytes, response["Body"].read())
+
+        text = object_bytes.decode("utf-8")
+
+        groups = chunk_doc_by_headings(text)
+
+        for group in groups:
+            # 1. Store parent chunk (full section text, no embedding)
+            parent = DocumentChunk(
                 document_id=doc_id,
-                content=chunk_text,
-                embedding=vector
+                content=group.parent_content,
+                chunk_header=group.header,
+                parent_chunk_id=None,
+                embedding=None,
             )
-            db.add(chunk)
-        
+            db.add(parent)
+            db.flush()  # get parent.chunk_id before inserting children
+
+            # 2. Embed children (subchunks used for retrieval)
+            child_embeddings = embedding_service.generate_embedding(group.children)
+
+            for child_text, vector in zip(group.children, child_embeddings):
+                child = DocumentChunk(
+                    document_id=doc_id,
+                    content=child_text,
+                    chunk_header=group.header,
+                    parent_chunk_id=parent.chunk_id,
+                    embedding=vector,
+                )
+                db.add(child)
+
         db.commit()
         logger.info("Embed Successful!")
     finally:
