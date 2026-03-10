@@ -24,7 +24,11 @@ class DocumentChunk(Base):
     chunk_id = Column(Integer, primary_key=True)
     document_id = Column(Integer, ForeignKey("documents.document_id"))
     content = Column(Text, nullable=False)
-    embedding = Column(Vector(384)) # 384-dim embedding
+    chunk_header = Column(Text, nullable=True)   # breadcrumb path, not embedded
+    parent_chunk_id = Column(Integer, ForeignKey("document_chunks.chunk_id"), nullable=True)
+    # NULL embedding = parent chunk (full section, used as LLM context)
+    # Non-null embedding = child chunk (subchunk, used for retrieval)
+    embedding = Column(Vector(384))
 
 class User(Base):
     __tablename__ = "users"

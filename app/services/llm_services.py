@@ -8,8 +8,11 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def generate_answer(context: str, question: str) -> str:
     prompt = f"""
-You are an assistant
-Use ONLY the context below to answer the question
+You are a helpful assistant.
+
+Answer ONLY using the provided context.
+If the answer is not in the context, say you don't know.
+Cite sources using [Source X].
 
 Context:
 {context}
