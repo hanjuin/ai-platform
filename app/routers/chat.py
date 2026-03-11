@@ -12,7 +12,7 @@ from app.services.llm_services import generate_answer
 from app.models.schemes import ChatRequest, ChatResponse
 from app.models.db_models import User, UserRole
 
-SIMILARITY_THRESHOLD = 0.4
+SIMILARITY_THRESHOLD = 0.3
 OVERFETCH_LIMIT = 20
 CONTEXT_CHUNKS = 8
 RRF_K = 60
