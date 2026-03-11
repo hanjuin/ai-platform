@@ -12,7 +12,7 @@ from app.services.cache_service import get_cache, set_cache
 from app.services.security import get_current_user
 from app.models.db_models import User, UserRole
 
-SIMILARITY_THRESHOLD = 0.4
+SIMILARITY_THRESHOLD = 0.3
 OVERFETCH_LIMIT = 20
 RRF_K = 60
 

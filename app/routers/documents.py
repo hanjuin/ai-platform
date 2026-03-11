@@ -81,16 +81,20 @@ def generate_and_store_embedding(doc_id: int):
             db.add(parent)
             db.flush()  # get parent.chunk_id before inserting children
 
-            # 2. Embed children (subchunks used for retrieval)
-            child_embeddings = embedding_service.generate_embedding(group.children)
+            # 2. Embed children — prepend header to embedding text for better retrieval
+            embed_texts = [
+                f"{group.header}\n\n{child_text}" if group.header else child_text
+                for child_text in group.children
+            ]
+            child_embeddings = embedding_service.generate_embedding(embed_texts)
 
             for child_text, vector in zip(group.children, child_embeddings):
                 child = DocumentChunk(
                     document_id=doc_id,
-                    content=child_text,
+                    content=child_text,         # store original text (LLM uses parent anyway)
                     chunk_header=group.header,
                     parent_chunk_id=parent.chunk_id,
-                    embedding=vector,
+                    embedding=vector,           # embedded with header prepended
                 )
                 db.add(child)
 
