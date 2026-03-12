@@ -22,28 +22,20 @@ def expand_query(query: str, n: int = 4) -> list[str]:
     if cached:
         return cached
 
-    response = client.chat.completions.create(
+    response = client.responses.create(
         model="gpt-4o-mini",
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "You generate alternative phrasings of a search query to improve document retrieval. "
-                    "Output ONLY a JSON array of strings — no explanation, no markdown."
-                ),
-            },
-            {
-                "role": "user",
-                "content": (
-                    f"Generate {n} alternative phrasings of this query. "
-                    f"Vary vocabulary and structure but preserve meaning.\n\nQuery: {query}"
-                ),
-            },
-        ],
+        instructions=(
+            "You generate alternative phrasings of a search query to improve document retrieval. "
+            "Output ONLY a JSON array of strings — no explanation, no markdown."
+        ),
+        input=(
+            f"Generate {n} alternative phrasings of this query. "
+            f"Vary vocabulary and structure but preserve meaning.\n\nQuery: {query}"
+        ),
         temperature=0.7,
     )
 
-    raw = response.choices[0].message.content.strip()
+    raw = response.output_text.strip()
     try:
         variants = json.loads(raw)
         if not isinstance(variants, list):

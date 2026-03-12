@@ -17,12 +17,19 @@ Rules you must follow without exception:
 5. If only part of the answer is in the context, answer only that part and say the rest is not in the documents."""
 
 def generate_answer(context: str, question: str) -> str:
-    response = client.chat.completions.create(
+    response = client.responses.create(
         model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": f"Context:\n{context}\n\nQuestion: {question}"}
-        ]
+        instructions=SYSTEM_PROMPT,
+        input=f"Context:\n{context}\n\nQuestion: {question}",
     )
 
-    return response.choices[0].message.content
+    return response.output_text
+
+def generate_hypothetical(query: str):
+    response = client.responses.create(
+        model="gpt-4o-mini",
+        instructions="Write a short 2-3 sentence passage that directly answer the question, written as if its an excerpt from a document",
+        input = query
+    )
+    
+    return response.output_text

@@ -8,9 +8,10 @@ from app.services.security import get_current_user
 from app.services.embedding_service import embedding_service
 from app.services.reranker_service import reranker_service
 from app.services.query_expansion import expand_query
-from app.services.llm_services import generate_answer
+from app.services.llm_services import generate_answer, generate_hypothetical
 from app.models.schemes import ChatRequest, ChatResponse
 from app.models.db_models import User, UserRole
+from app.core.logging_config import logger
 
 SIMILARITY_THRESHOLD = 0.3
 OVERFETCH_LIMIT = 20
@@ -92,7 +93,10 @@ async def chat(
 ):
     # Multi-query expansion
     queries = await run_in_threadpool(expand_query, request.message)
-
+    hypothetical = await run_in_threadpool(generate_hypothetical, request.message)
+    
+    logger.info(hypothetical)
+    
     owner_filter = "" if current_user.role == UserRole.admin else "AND d.owner_id = :user_id"
     base_params: dict = {
         "threshold": SIMILARITY_THRESHOLD,
@@ -103,7 +107,7 @@ async def chat(
 
     # Retrieve for each query variant, merge with RRF
     merged: dict[int, dict] = {}
-    for variant in queries:
+    for variant in queries + [hypothetical]:
         embedding = await run_in_threadpool(embedding_service.generate_embedding, variant)
         if isinstance(embedding[0], list):
             vec = embedding[0]

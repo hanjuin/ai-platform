@@ -44,13 +44,13 @@ def score_answer(question: str, ground_truth: str, predicted_answer: str) -> dic
         }}
     """
     
-    response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role":"user", "content": prompt}],
-            response_format={"type":"json_object"}
+    response = client.responses.create(
+        model="gpt-4o-mini",
+        input=prompt,
+        text={"format": {"type": "json_object"}},
     )
-    
-    return json.loads(response.choices[0].message.content)
+
+    return json.loads(response.output_text)
 
 
 def main():
