@@ -10,6 +10,7 @@ from app.services.query_expansion import expand_query
 from app.models.schemes import SearchResponse
 from app.services.cache_service import get_cache, set_cache
 from app.services.security import get_current_user
+from app.services.llm_services import generate_hypothetical
 from app.models.db_models import User, UserRole
 
 SIMILARITY_THRESHOLD = 0.3
@@ -87,6 +88,7 @@ async def search_documents(
 
     # Multi-query expansion
     queries = await run_in_threadpool(expand_query, q)
+    hypothetical = await run_in_threadpool(generate_hypothetical, q)
 
     owner_filter = "" if current_user.role == UserRole.admin else "AND d.owner_id = :user_id"
     base_params: dict = {
@@ -98,7 +100,7 @@ async def search_documents(
 
     # Retrieve for each query variant, merge with RRF
     merged: dict[int, dict] = {}
-    for variant in queries:
+    for variant in queries + [hypothetical]:
         embedding = await run_in_threadpool(embedding_service.generate_embedding, variant)
         embedding_str = f"[{','.join(map(str, embedding[0]))}]"
         variant_scores = await run_in_threadpool(

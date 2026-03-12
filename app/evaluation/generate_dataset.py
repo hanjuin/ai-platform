@@ -51,14 +51,14 @@ def generate_qa_pair(chunk_id, content, header, filename):
             "answer": "..."
         }}
     """
-    
-    response = client.chat.completions.create(
+
+    response = client.responses.create(
         model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}],
-        response_format={"type":"json_object"}
+        input=prompt,
+        text={"format": {"type": "json_object"}},
     )
-    
-    return json.loads(response.choices[0].message.content)
+
+    return json.loads(response.output_text)
 
 def main():
     print("Fetching parent chunks from DB...")
