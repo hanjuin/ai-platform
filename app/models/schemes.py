@@ -1,4 +1,6 @@
 from pydantic import BaseModel
+from datetime import datetime
+
 
 class DocumentCreate(BaseModel):
     filename:str
@@ -41,7 +43,21 @@ class UserResponse(BaseModel):
 
 class ChatRequest(BaseModel):
     message: str
+    session_id: int | None = None
 
 class ChatResponse(BaseModel):
     answer: str
     sources: list[str]
+    
+class SessionResponse(BaseModel):
+    session_id: int
+    class Config:
+        from_attributes = True
+    
+class MessageResponse(BaseModel):
+    role: str
+    content: str
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True

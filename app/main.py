@@ -2,7 +2,7 @@ import os
 from fastapi import FastAPI, Depends
 from app.models.db_models import Base, User, UserRole
 from app.db.session import engine, SessionLocal
-from app.routers import documents, auth, users, search, chat
+from app.routers import documents, auth, users, search, chat, conversation
 from app.services.embedding_service import embedding_service
 from app.services.security import hash_password
 from sqlalchemy.orm import Session
@@ -55,6 +55,7 @@ app.include_router(search.router)
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(chat.router)
+app.include_router(conversation.router)
 
 @app.get("/health")
 def health_check():
