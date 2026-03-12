@@ -1,27 +1,28 @@
-from sentence_transformers import SentenceTransformer
+from openai import OpenAI
+from dotenv import load_dotenv
 from typing import Union, List
+import os
+
+load_dotenv()
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class EmbeddingService:
-    def __init__(self):
-        self.model = SentenceTransformer(
-            "all-MiniLM-L6-v2",
-            device="cpu"
-        )
-
+    
     def generate_embedding(
         self,
         text: Union[str, List[str]]
     ) -> List[List[float]]:
-
-        embeddings = self.model.encode(
-            text,
-            normalize_embeddings=True  # improves cosine similarity stability
+        
+        response = client.embeddings.create(
+            input=text,
+            model="text-embedding-3-small"
         )
 
         if isinstance(text, str):
-            return [embeddings.tolist()]
+            return [response.data[0].embedding]
 
-        return embeddings.tolist()
+        return [item.embedding for item in response.data]
 
 
 embedding_service = EmbeddingService()

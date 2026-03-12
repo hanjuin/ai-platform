@@ -14,7 +14,7 @@ class Document(Base):
 
     document_id = Column(Integer, primary_key=True, index=True)
     filename = Column(String, nullable=False)
-    embedding = Column(Vector(384)) # 384-dim embedding
+    embedding = Column(Vector(1536)) # 384-dim embedding
     s3_key = Column(String, nullable=False)
     owner_id = Column(Integer, ForeignKey("users.user_id"))
     owner = relationship("User", back_populates="documents")
@@ -28,7 +28,7 @@ class DocumentChunk(Base):
     parent_chunk_id = Column(Integer, ForeignKey("document_chunks.chunk_id"), nullable=True)
     # NULL embedding = parent chunk (full section, used as LLM context)
     # Non-null embedding = child chunk (subchunk, used for retrieval)
-    embedding = Column(Vector(384))
+    embedding = Column(Vector(1536))
 
 class User(Base):
     __tablename__ = "users"

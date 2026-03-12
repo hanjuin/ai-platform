@@ -21,7 +21,7 @@ def startup():
         conn.commit()
 
     Base.metadata.create_all(bind=engine)
-    _ = embedding_service.model
+    # _ = embedding_service.model
 
     with engine.connect() as conn:
         conn.execute(text(
