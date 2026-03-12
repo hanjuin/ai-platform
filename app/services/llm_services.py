@@ -16,11 +16,26 @@ Rules you must follow without exception:
 4. Always cite sources using [Source X] for every claim you make.
 5. If only part of the answer is in the context, answer only that part and say the rest is not in the documents."""
 
-def generate_answer(context: str, question: str) -> str:
+def generate_answer(context: str, question: str, history: list[dict] = []) -> str:
+    input_messages = []
+    
+    for msg in history[-6:]:
+        input_messages.append(
+            {
+                "role": msg["role"],
+                "content": msg["content"]
+            }
+        )
+        
+    input_messages.append({
+        "role": "user",
+        "content": f"Context:\n{context}\n\nQuestions: {question}"
+    })
+    
     response = client.responses.create(
         model="gpt-4o-mini",
         instructions=SYSTEM_PROMPT,
-        input=f"Context:\n{context}\n\nQuestion: {question}",
+        input=input_messages
     )
 
     return response.output_text

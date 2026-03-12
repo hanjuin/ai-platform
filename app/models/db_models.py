@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey, Enum, DateTime
 from sqlalchemy.orm import declarative_base, relationship
 from pgvector.sqlalchemy import Vector
 import enum
+from datetime import datetime
 
 Base = declarative_base()
 
@@ -41,4 +42,20 @@ class User(Base):
     role = Column(Enum(UserRole), default=UserRole.user)
 
     documents = relationship("Document", back_populates="owner")
+    
+class ConversationSession(Base):
+    __tablename__ = "conversation_session"
+    
+    session_id = Column(Integer,primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    
+class ConversationMessage(Base):
+    __tablename__ = "conversation_message"
+    
+    message_id = Column(Integer, primary_key=True)
+    session_id = Column(Integer, ForeignKey("conversation_session.session_id"))
+    role = Column(String)
+    content = Column(String)
+    created_at = Column(DateTime, default=datetime.now)
     
