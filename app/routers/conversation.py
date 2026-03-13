@@ -1,16 +1,17 @@
 from fastapi import APIRouter, Depends,HTTPException
+from fastapi.responses import StreamingResponse
+from app.db.session import SessionLocal
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from app.models.db_models import ConversationSession, ConversationMessage, User, UserRole
+from app.models.db_models import ConversationSession, ConversationMessage  # no auth imports needed
 from app.models.schemes import SessionResponse, MessageResponse, ChatRequest,ChatResponse
 from app.dependencies import get_db
-from app.services.security import get_current_user
 from app.services.embedding_service import embedding_service
 from app.services.reranker_service import reranker_service
 from app.services.query_expansion import expand_query
-from app.services.llm_services import generate_answer, generate_hypothetical
+from app.services.llm_services import generate_answer, generate_hypothetical, generate_answer_stream
 
 SIMILARITY_THRESHOLD = 0.3
 OVERFETCH_LIMIT = 20
@@ -87,10 +88,9 @@ def _fetch_parent_content(db: Session, parent_chunk_id: int) -> str | None:
 @router.post("/chat/sessions/", response_model= SessionResponse)
 def create_sessions(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
 ):
     conversation_session = ConversationSession(
-        user_id = current_user.user_id
+        user_id = None
     )
     
     db.add(conversation_session)
@@ -104,15 +104,9 @@ def create_sessions(
 def get_message_responses(
     session_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
 ):
-    session = db.query(ConversationSession).filter(ConversationSession.session_id == session_id).first()
-    
-    if not session or session.user_id != current_user.user_id:
-        raise HTTPException(status_code=403, detail="Access denied")
-    
     message = db.query(ConversationMessage).filter(ConversationMessage.session_id == session_id).order_by(ConversationMessage.created_at).all()
-    
+
     return message
 
 @router.post("/{session_id}", response_model=ChatResponse)
@@ -120,12 +114,11 @@ async def chat_with_history(
     session_id: int,
     request: ChatRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
 ):
     session = db.query(ConversationSession).filter(ConversationSession.session_id == session_id).first()
-    if not session or session.user_id != current_user.user_id:
-        raise HTTPException(status_code=403, detail="Access denied")
-    
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
     past_messages = (
         db.query(ConversationMessage).filter(ConversationMessage.session_id == session_id).order_by(ConversationMessage.created_at).all()
     )
@@ -142,14 +135,11 @@ async def chat_with_history(
     queries = await run_in_threadpool(expand_query, request.message)
     hypothetical = await run_in_threadpool(generate_hypothetical, request.message)
     
-    owner_filter = "" if current_user.role == UserRole.admin else "AND d.owner_id = :user_id"
+    owner_filter = ""
     base_params: dict = {
         "threshold": SIMILARITY_THRESHOLD,
         "overfetch": OVERFETCH_LIMIT,
     }
-    
-    if current_user.role != UserRole.admin:
-        base_params["user_id"] = current_user.user_id
         
     
     merged: dict[int, dict] = {}
@@ -195,3 +185,89 @@ async def chat_with_history(
     db.commit()
     
     return ChatResponse(answer=answer,sources=[c["filename"] for c in top_chunks])
+
+
+@router.post("/{session_id}/stream")
+async def chat_stream(session_id: int,
+    request: ChatRequest,
+    db: Session = Depends(get_db)
+):
+    session = db.query(ConversationSession).filter(ConversationSession.session_id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    past_messages = (
+        db.query(ConversationMessage).filter(ConversationMessage.session_id == session_id).order_by(ConversationMessage.created_at).all()
+    )
+    
+    history = [{"role":m.role,"content":m.content} for m in past_messages]
+    
+    db.add(ConversationMessage(
+        session_id=session_id,
+        role="user",
+        content=request.message
+    ))
+    db.commit()
+    
+    queries = await run_in_threadpool(expand_query, request.message)
+    hypothetical = await run_in_threadpool(generate_hypothetical, request.message)
+    
+    owner_filter = ""
+    base_params: dict = {
+        "threshold": SIMILARITY_THRESHOLD,
+        "overfetch": OVERFETCH_LIMIT,
+    }
+        
+    
+    merged: dict[int, dict] = {}
+    for variant in queries + [hypothetical]:
+        embedding = await run_in_threadpool(embedding_service.generate_embedding, variant)
+        vec = embedding[0] if isinstance(embedding[0], list) else embedding
+        embedding_str = f"[{','.join(map(str,vec))}]"
+        variant_scores = await run_in_threadpool(
+            _run_retrieval,db,embedding_str,variant,owner_filter,base_params
+        )
+        
+        for chunk_id, chunk in variant_scores.items():
+            if chunk_id in merged:
+                merged[chunk_id]["rrf"] += chunk["rrf"]
+            else:
+                merged[chunk_id] = dict(chunk)
+                
+    candidates = list(merged.values())
+    reranked = await run_in_threadpool(reranker_service.rerank, request.message,candidates)
+    top_chunks = reranked[:CONTEXT_CHUNKS]
+    
+    context_parts = []
+    
+    for i, chunk in enumerate(top_chunks):
+        parent_id = chunk.get("parent_chunk_id")
+        if parent_id:
+            parent_content = await run_in_threadpool(_fetch_parent_content, db, parent_id)
+            context_text = parent_content or chunk["content"]
+        else:
+            context_text = chunk["content"]
+        
+        header = f" | {chunk['chunk_header']}" if chunk.get("chunk_header") else ""
+        context_parts.append(f"[Source {i+1} | {chunk['filename']}{header}]\n{context_text}")
+    context = "\n\n".join(context_parts)
+    
+    collected = []
+    
+    def generate():
+        for token in generate_answer_stream(context, request.message, history):
+            collected.append(token)
+            yield token
+
+        save_db = SessionLocal()
+        try:
+            save_db.add(ConversationMessage(
+                session_id=session_id,
+                role="assistant",
+                content="".join(collected)
+            ))
+            save_db.commit()
+        finally:
+            save_db.close()
+
+    return StreamingResponse(generate(), media_type="text/plain")
