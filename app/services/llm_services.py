@@ -48,3 +48,24 @@ def generate_hypothetical(query: str):
     )
     
     return response.output_text
+
+def generate_answer_stream(
+    context: str,
+    question: str,
+    history: list[dict] = []
+):
+    input_messages = []
+    for msg in history[-6:]:
+        input_messages.append({"role": msg["role"], "content": msg["content"]})
+    input_messages.append({
+        "role": "user",
+        "content": f"Context:\n{context}\n\nQuestions: {question}"
+    })
+    with client.responses.stream(
+        model="gpt-4o-mini",
+        instructions=SYSTEM_PROMPT,
+        input=input_messages
+    ) as stream:
+        for event in stream:
+            if event.type == "response.output_text.delta":
+                yield event.delta
