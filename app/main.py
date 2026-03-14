@@ -15,7 +15,7 @@ load_dotenv()
 app = FastAPI(title="AI Document Intelligence API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "https://www.hanjuin.com/"],
     allow_methods=["GET","POST"],
     allow_headers=["Content-Type"],
 )
@@ -27,7 +27,6 @@ def startup():
         conn.commit()
 
     Base.metadata.create_all(bind=engine)
-    # _ = embedding_service.model
 
     with engine.connect() as conn:
         conn.execute(text(
