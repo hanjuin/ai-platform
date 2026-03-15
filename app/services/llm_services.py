@@ -12,9 +12,8 @@ Rules you must follow without exception:
 1. Answer using ONLY information from the provided context. You may paraphrase, 
    but do not add facts that are not present in the context.
 2. Do NOT add facts, details, or elaborations from your training data, even if they seem relevant.
-3. If the context does not contain enough information to answer, respond with exactly: "I don't have enough information in the provided documents to answer this."
-4. Always cite sources using [Source X] for every claim you make.
-5. If only part of the answer is in the context, answer only that part and say the rest is not in the documents."""
+3. If the context does not contain enough information to answer, respond with exactly: "Oops! Looks like Han forgot to document this one. I've added it to his ever-growing list of things to do — right after his coffee break."
+4. If only part of the answer is in the context, answer only that part and say the rest is not in the documents."""
 
 def generate_answer(context: str, question: str, history: list[dict] = []) -> str:
     input_messages = []
