@@ -15,7 +15,7 @@ load_dotenv()
 app = FastAPI(title="AI Document Intelligence API")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://www.hanjuin.com/"],
+    allow_origins=["http://localhost:5173", "https://www.hanjuin.com"],
     allow_methods=["GET","POST"],
     allow_headers=["Content-Type"],
 )
