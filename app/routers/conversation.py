@@ -12,6 +12,7 @@ from app.services.embedding_service import embedding_service
 from app.services.reranker_service import reranker_service
 from app.services.query_expansion import expand_query
 from app.services.llm_services import generate_answer, generate_hypothetical, generate_answer_stream
+from app.services.greeting_service import classify_message, GREETING_RESPONSE
 
 SIMILARITY_THRESHOLD = 0.3
 OVERFETCH_LIMIT = 20
@@ -122,26 +123,34 @@ async def chat_with_history(
     past_messages = (
         db.query(ConversationMessage).filter(ConversationMessage.session_id == session_id).order_by(ConversationMessage.created_at).all()
     )
-    
+
     history = [{"role":m.role,"content":m.content} for m in past_messages]
-    
+
+    # Greeting detection — short-circuit before retrieval
+    msg_type = await run_in_threadpool(classify_message, request.message)
+    if msg_type == "greeting":
+        db.add(ConversationMessage(session_id=session_id, role="user", content=request.message))
+        db.add(ConversationMessage(session_id=session_id, role="assistant", content=GREETING_RESPONSE))
+        db.commit()
+        return ChatResponse(answer=GREETING_RESPONSE, sources=[])
+
     db.add(ConversationMessage(
         session_id=session_id,
         role="user",
         content=request.message
     ))
     db.commit()
-    
+
     queries = await run_in_threadpool(expand_query, request.message)
     hypothetical = await run_in_threadpool(generate_hypothetical, request.message)
-    
+
     owner_filter = ""
     base_params: dict = {
         "threshold": SIMILARITY_THRESHOLD,
         "overfetch": OVERFETCH_LIMIT,
     }
-        
-    
+
+
     merged: dict[int, dict] = {}
     for variant in queries + [hypothetical]:
         embedding = await run_in_threadpool(embedding_service.generate_embedding, variant)
@@ -199,16 +208,33 @@ async def chat_stream(session_id: int,
     past_messages = (
         db.query(ConversationMessage).filter(ConversationMessage.session_id == session_id).order_by(ConversationMessage.created_at).all()
     )
-    
+
     history = [{"role":m.role,"content":m.content} for m in past_messages]
-    
+
+    # Greeting detection — short-circuit before retrieval
+    msg_type = await run_in_threadpool(classify_message, request.message)
+    if msg_type == "greeting":
+        save_db = SessionLocal()
+        try:
+            save_db.add(ConversationMessage(session_id=session_id, role="user", content=request.message))
+            save_db.add(ConversationMessage(session_id=session_id, role="assistant", content=GREETING_RESPONSE))
+            save_db.commit()
+        finally:
+            save_db.close()
+
+        def greeting_stream():
+            for char in GREETING_RESPONSE:
+                yield char
+
+        return StreamingResponse(greeting_stream(), media_type="text/plain")
+
     db.add(ConversationMessage(
         session_id=session_id,
         role="user",
         content=request.message
     ))
     db.commit()
-    
+
     queries = await run_in_threadpool(expand_query, request.message)
     hypothetical = await run_in_threadpool(generate_hypothetical, request.message)
     

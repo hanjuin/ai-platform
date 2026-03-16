@@ -12,6 +12,7 @@ from app.services.llm_services import generate_answer, generate_hypothetical
 from app.models.schemes import ChatRequest, ChatResponse
 from app.models.db_models import User, UserRole
 from app.core.logging_config import logger
+from app.services.greeting_service import classify_message, GREETING_RESPONSE
 
 SIMILARITY_THRESHOLD = 0.3
 OVERFETCH_LIMIT = 20
@@ -91,6 +92,11 @@ async def chat(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Greeting detection — short-circuit before retrieval
+    msg_type = await run_in_threadpool(classify_message, request.message)
+    if msg_type == "greeting":
+        return ChatResponse(answer=GREETING_RESPONSE, sources=[])
+
     # Multi-query expansion
     queries = await run_in_threadpool(expand_query, request.message)
     hypothetical = await run_in_threadpool(generate_hypothetical, request.message)
