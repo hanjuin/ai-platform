@@ -1,4 +1,8 @@
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from app.models.db_models import Base, User, UserRole
@@ -8,9 +12,6 @@ from app.services.security import hash_password
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from app.dependencies import get_db
-from dotenv import load_dotenv
-
-load_dotenv()
 
 app = FastAPI(title="AI Document Intelligence API")
 app.add_middleware(
