@@ -5,7 +5,7 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from app.models.db_models import ConversationSession, ConversationMessage  # no auth imports needed
+from app.models.db_models import ConversationSession, ConversationMessage, FlaggedQuestion  # no auth imports needed
 from app.models.schemes import SessionResponse, MessageResponse, ChatRequest,ChatResponse
 from app.dependencies import get_db
 from app.services.embedding_service import embedding_service
@@ -18,6 +18,7 @@ SIMILARITY_THRESHOLD = 0.3
 OVERFETCH_LIMIT = 20
 CONTEXT_CHUNKS = 8
 RRF_K = 60
+FALLBACK_PHRASE = "Oops! Looks like Han forgot to document this one. I've added it to his ever-growing list of things to do — right after his coffee break."
 
 router = APIRouter(prefix="/conversation", tags=["conversation"])
 
@@ -191,6 +192,10 @@ async def chat_with_history(
         role="assistant",
         content=answer
     ))
+    
+    if FALLBACK_PHRASE in answer:
+        db.add(FlaggedQuestion(question=request.message, session_id=session_id))
+    
     db.commit()
     
     return ChatResponse(answer=answer,sources=[c["filename"] for c in top_chunks])
@@ -284,14 +289,18 @@ async def chat_stream(session_id: int,
         for token in generate_answer_stream(context, request.message, history):
             collected.append(token)
             yield token
-
+        full_response= "".join(collected)
         save_db = SessionLocal()
         try:
             save_db.add(ConversationMessage(
                 session_id=session_id,
                 role="assistant",
-                content="".join(collected)
+                content=full_response
             ))
+            
+            if FALLBACK_PHRASE in full_response:
+                save_db.add(FlaggedQuestion(question=request.message, session_id=session_id))
+        
             save_db.commit()
         finally:
             save_db.close()

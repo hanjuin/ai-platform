@@ -10,7 +10,7 @@ from app.services.reranker_service import reranker_service
 from app.services.query_expansion import expand_query
 from app.services.llm_services import generate_answer, generate_hypothetical
 from app.models.schemes import ChatRequest, ChatResponse
-from app.models.db_models import User, UserRole
+from app.models.db_models import User, UserRole, FlaggedQuestion
 from app.core.logging_config import logger
 from app.services.greeting_service import classify_message, GREETING_RESPONSE
 
@@ -18,6 +18,7 @@ SIMILARITY_THRESHOLD = 0.3
 OVERFETCH_LIMIT = 20
 CONTEXT_CHUNKS = 8
 RRF_K = 60
+FALLBACK_PHRASE = "Oops! Looks like Han forgot to document this one. I've added it to his ever-growing list of things to do — right after his coffee break."
 
 router = APIRouter(prefix="/chat", tags=["Chat"])
 
@@ -157,6 +158,11 @@ async def chat(
         context,
         request.message
     )
+
+    if FALLBACK_PHRASE in answer:
+        db.add(FlaggedQuestion(question=request.message, session_id=None))
+    
+    db.commit()
 
     return ChatResponse(
         answer=answer,
