@@ -59,3 +59,14 @@ class ConversationMessage(Base):
     content = Column(String)
     created_at = Column(DateTime, default=datetime.now)
     
+class FlaggedQuestion(Base):
+    __tablename__ = "flagged_questions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    question = Column(Text, nullable=False)
+    session_id = Column(Integer, ForeignKey("conversation_session.session_id"), nullable=True)
+    answered = Column(Boolean, default=False)
+    answer = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.now)
+    answered_at = Column(DateTime, nullable=True)
+    

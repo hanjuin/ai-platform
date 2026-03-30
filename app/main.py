@@ -3,7 +3,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from app.models.db_models import Base, User, UserRole
 from app.db.session import engine, SessionLocal
-from app.routers import documents, auth, users, search, chat, conversation
+from app.routers import documents, auth, users, search, chat, conversation, flagged_question
 from app.services.security import hash_password
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -61,6 +61,7 @@ app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(chat.router)
 app.include_router(conversation.router)
+app.include_router(flagged_question.router)
 
 @app.api_route("/health", methods=["GET", "HEAD"])
 def health_check():

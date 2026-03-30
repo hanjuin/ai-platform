@@ -61,3 +61,19 @@ class MessageResponse(BaseModel):
     
     class Config:
         from_attributes = True
+        
+class FlaggedQuestionResponse(BaseModel):
+    id: int
+    question: str
+    session_id: int | None
+    answered: bool
+    answer: str | None
+    created_at: datetime
+    answered_at: datetime | None
+    
+    class Config:
+        from_attributes = True
+        
+class AdminAnswerRequest(BaseModel):
+    answer: str
+    
