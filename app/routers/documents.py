@@ -1,7 +1,7 @@
 import boto3
 import uuid
 import os
-from fastapi import APIRouter, Depends, BackgroundTasks, UploadFile, File
+from fastapi import APIRouter, Depends, BackgroundTasks, UploadFile, File, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
@@ -50,6 +50,42 @@ def create_document(
     )
     logger.info("Upload Successful!")
     return db_document
+
+
+@router.get("/", response_model=list[DocumentResponse])
+def list_documents(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    return db.query(Document).filter(Document.owner_id == current_user.user_id).all()
+
+
+@router.delete("/{document_id}")
+def delete_document(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    doc = db.query(Document).filter(
+        Document.document_id == document_id,
+        Document.owner_id == current_user.user_id
+    ).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Nullify parent references before deleting to avoid FK constraint errors
+    db.query(DocumentChunk).filter(
+        DocumentChunk.document_id == document_id,
+        DocumentChunk.parent_chunk_id.is_not(None)
+    ).update({"parent_chunk_id": None}, synchronize_session=False)
+
+    db.query(DocumentChunk).filter(DocumentChunk.document_id == document_id).delete(synchronize_session=False)
+
+    s3.delete_object(Bucket=BUCKET, Key=doc.s3_key)
+
+    db.delete(doc)
+    db.commit()
+    return {"message": "Document deleted"}
 
 
 def generate_and_store_embedding(doc_id: int):
