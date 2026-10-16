@@ -20,7 +20,7 @@ class SearchResponse(BaseModel):
     chunk_header: str | None
     content: str
     similarity: float
-    owner_id: int
+    owner_id: int | None
     class Config:
         from_attributes = True
 
